@@ -1,47 +1,29 @@
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import process from "node:process";
+import { readJsonStore, writeJsonStore } from "../blob-storage.server";
 
-const MESSAGES_FILE = path.join(process.cwd(), "messages.json");
+const MESSAGES_PATH = "shaurya/messages.json";
+const MESSAGES_FILE = "messages.json";
 
-// Helper to read messages from the file
-function readMessages() {
-  try {
-    if (fs.existsSync(MESSAGES_FILE)) {
-      const data = fs.readFileSync(MESSAGES_FILE, "utf-8");
-      return JSON.parse(data);
-    }
-  } catch (error) {
-    console.error("Error reading messages file:", error);
-  }
-  return [];
-}
-
-// Helper to write messages to the file
-function writeMessages(messages: any[]) {
-  try {
-    fs.writeFileSync(MESSAGES_FILE, JSON.stringify(messages, null, 2), "utf-8");
-  } catch (error) {
-    console.error("Error writing messages file:", error);
-  }
-}
+type ContactMessage = {
+  name: string;
+  email: string;
+  discord?: string;
+  gameType: string;
+  projectType: string;
+  budget: string;
+  message: string;
+  timestamp: string;
+};
 
 export const saveMessage = createServerFn({ method: "POST" })
-  .validator((data: any) => data)
+  .validator((data: ContactMessage) => data)
   .handler(async ({ data }) => {
-    const existingMessages = readMessages();
+    const existingMessages = await readJsonStore<ContactMessage[]>(MESSAGES_PATH, MESSAGES_FILE, []);
     const newMessage = { ...data, timestamp: new Date().toISOString() };
-    const updatedMessages = [newMessage, ...existingMessages];
-    
-    writeMessages(updatedMessages);
-    
+    await writeJsonStore(MESSAGES_PATH, MESSAGES_FILE, [newMessage, ...existingMessages]);
     return { success: true };
   });
 
-export const getMessages = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const messages = readMessages();
-    return messages;
-  });
+export const getMessages = createServerFn({ method: "GET" }).handler(async () => {
+  return readJsonStore<ContactMessage[]>(MESSAGES_PATH, MESSAGES_FILE, []);
+});

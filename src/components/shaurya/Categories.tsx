@@ -1,12 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
-import { uploadImage } from "../../lib/api/upload.functions";
+import { uploadImage, getUploadedProjects } from "../../lib/api/upload.functions";
 import { SectionHeading } from "./SectionHeading";
-import { categories, projects } from "./data";
+import { categories, projects as staticProjects, type Project } from "./data";
 
 export function Categories() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [uploadedProjects, setUploadedProjects] = useState<Project[]>([]);
   
   // Admin Upload State
   const [isAdmin, setIsAdmin] = useState(false);
@@ -14,6 +15,7 @@ export function Categories() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const projects = [...uploadedProjects, ...staticProjects];
   const filteredProjects = projects.filter((p) => p.category === activeCategory);
 
   const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
@@ -47,6 +49,8 @@ export function Categories() {
         });
         if (res.success) {
           alert("Image uploaded successfully! It may take a second to appear.");
+          const latest = await getUploadedProjects();
+          setUploadedProjects(latest || []);
         } else {
           alert("Server returned error: " + res.message);
         }
@@ -59,6 +63,12 @@ export function Categories() {
     };
     reader.readAsDataURL(file);
   };
+
+  useEffect(() => {
+    getUploadedProjects()
+      .then((items) => setUploadedProjects(items || []))
+      .catch(() => setUploadedProjects([]));
+  }, []);
 
   useEffect(() => {
     if (activeCategory || activeIndex !== null) {

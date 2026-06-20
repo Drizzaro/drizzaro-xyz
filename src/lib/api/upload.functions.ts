@@ -3,6 +3,11 @@ import { z } from "zod";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import process from "node:process";
+import type { Project } from "@/components/shaurya/data";
+import { readJsonStore, uploadBinary, useBlobStorage, writeJsonStore } from "../blob-storage.server";
+
+const UPLOADS_PATH = "shaurya/uploads.json";
+const UPLOADS_FILE = "uploads.json";
 
 const uploadSchema = z.object({
   fileName: z.string(),
@@ -10,37 +15,65 @@ const uploadSchema = z.object({
   category: z.enum(["BGMI", "GTA V", "Valorant", "Minecraft"]),
 });
 
+async function readUploads(): Promise<Project[]> {
+  return readJsonStore<Project[]>(UPLOADS_PATH, UPLOADS_FILE, []);
+}
+
+async function writeUploads(uploads: Project[]): Promise<void> {
+  await writeJsonStore(UPLOADS_PATH, UPLOADS_FILE, uploads);
+}
+
+export const getUploadedProjects = createServerFn({ method: "GET" }).handler(async () => {
+  return readUploads();
+});
+
 export const uploadImage = createServerFn({ method: "POST" })
   .validator(uploadSchema)
   .handler(async ({ data }) => {
     try {
       const { fileName, base64, category } = data;
-      
-      // 1. Process the base64 string and filename
       const base64Data = base64.replace(/^data:image\/\w+;base64,/, "");
       const buffer = Buffer.from(base64Data, "base64");
-      
+
       const ext = path.extname(fileName) || ".png";
-      const baseName = path.basename(fileName, ext).replace(/[^a-zA-Z0-9]/g, "");
+      const baseName = path.basename(fileName, ext).replace(/[^a-zA-Z0-9]/g, "") || "upload";
       const uniqueFileName = `${baseName}_${Date.now()}${ext}`;
+
+      if (useBlobStorage()) {
+        const imageUrl = await uploadBinary(
+          `shaurya/uploads/${category}/${uniqueFileName}`,
+          buffer,
+          `image/${ext.replace(".", "") || "png"}`,
+        );
+
+        const uploads = await readUploads();
+        const newProject: Project = {
+          id: `upload-${Date.now()}`,
+          title: "Uploaded Thumbnail",
+          category,
+          img: imageUrl,
+          description: "Uploaded via admin panel.",
+          client: "@admin",
+          feedback: "New upload",
+          galleryOnly: true,
+        };
+
+        await writeUploads([newProject, ...uploads]);
+        return { success: true, message: "Image uploaded successfully!" };
+      }
+
       const varName = `${baseName}_${Date.now()}`;
-      
-      // Paths
       const assetsDir = path.join(process.cwd(), "src", "assets");
       const filePath = path.join(assetsDir, uniqueFileName);
       const dataFilePath = path.join(process.cwd(), "src", "components", "shaurya", "data.ts");
-      
-      // 2. Write file to src/assets
+
       if (!fs.existsSync(assetsDir)) {
         fs.mkdirSync(assetsDir, { recursive: true });
       }
       fs.writeFileSync(filePath, buffer);
-      
-      // 3. Update data.ts
+
       let content = fs.readFileSync(dataFilePath, "utf-8");
-      
       const newImport = `import ${varName} from "@/assets/${uniqueFileName}";`;
-      
       const newProject = `  {
     id: "${varName}",
     title: "Uploaded Thumbnail",
@@ -52,7 +85,6 @@ export const uploadImage = createServerFn({ method: "POST" })
     galleryOnly: true,
   },`;
 
-      // Insert new import after the last import statement
       const importMatches = [...content.matchAll(/^import .*;$/gm)];
       if (importMatches.length > 0) {
         const lastMatch = importMatches[importMatches.length - 1];
@@ -61,15 +93,13 @@ export const uploadImage = createServerFn({ method: "POST" })
       } else {
         content = newImport + "\n\n" + content;
       }
-      
-      // Insert new project at the end of the projects array
+
       const projArrayEnd = content.indexOf("];", content.lastIndexOf("export const projects"));
       if (projArrayEnd !== -1) {
         content = content.slice(0, projArrayEnd) + newProject + "\n" + content.slice(projArrayEnd);
       }
-      
+
       fs.writeFileSync(dataFilePath, content, "utf-8");
-      
       return { success: true, message: "Image uploaded successfully!" };
     } catch (error) {
       console.error("Upload Error:", error);

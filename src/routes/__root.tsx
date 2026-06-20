@@ -73,33 +73,67 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
+// Helper to resolve absolute URL for the Open Graph preview image
+const getOgImageUrl = () => {
+  if (typeof process !== "undefined" && process?.env) {
+    if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+      return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/og-image.png`;
+    }
+    if (process.env.VERCEL_URL) {
+      return `https://${process.env.VERCEL_URL}/og-image.png`;
+    }
+  }
+  if (typeof window !== "undefined" && window.location) {
+    return `${window.location.origin}/og-image.png`;
+  }
+  return "/og-image.png";
+};
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Shaurya — Premium Gaming Thumbnail Designer" },
-      { name: "description", content: "Professional thumbnail designer for BGMI, GTA V, Valorant & Minecraft creators. Designs that earn clicks." },
-      { name: "author", content: "Shaurya" },
-      { property: "og:title", content: "Shaurya — Premium Gaming Thumbnail Designer" },
-      { property: "og:description", content: "High-converting gaming thumbnails for elite creators." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
-    ],
-    links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap",
-      },
-    ],
-  }),
+  head: () => {
+    const ogImageUrl = getOgImageUrl();
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        { title: "Shaurya — Premium Gaming Thumbnail Designer" },
+        { name: "description", content: "Professional thumbnail designer for BGMI, GTA V, Valorant & Minecraft creators. Designs that earn clicks." },
+        { name: "author", content: "Shaurya" },
+        { property: "og:title", content: "Shaurya — Premium Gaming Thumbnail Designer" },
+        { property: "og:description", content: "High-converting gaming thumbnails for elite creators." },
+        { property: "og:type", content: "website" },
+        { property: "og:image", content: ogImageUrl },
+        { property: "og:image:width", content: "1024" },
+        { property: "og:image:height", content: "595" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:site", content: "@Lovable" },
+        { name: "twitter:title", content: "Shaurya — Premium Gaming Thumbnail Designer" },
+        { name: "twitter:description", content: "High-converting gaming thumbnails for elite creators." },
+        { name: "twitter:image", content: ogImageUrl },
+      ],
+      links: [
+        {
+          rel: "icon",
+          type: "image/png",
+          href: "/favicon.png",
+        },
+        {
+          rel: "apple-touch-icon",
+          href: "/favicon.png",
+        },
+        {
+          rel: "stylesheet",
+          href: appCss,
+        },
+        { rel: "preconnect", href: "https://fonts.googleapis.com" },
+        { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap",
+        },
+      ],
+    };
+  },
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,

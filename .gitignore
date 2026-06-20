@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 .output
+.vercel
+messages.json
+uploads.json
 .vinxi
 .tanstack/**
 .nitro
